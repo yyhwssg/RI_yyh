@@ -1,0 +1,103 @@
+=== ERROR CONTEXT ===
+stage: main
+
+=== TRACEBACK ===
+Traceback (most recent call last):
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\urllib3\response.py", line 779, in _error_catcher
+    yield
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\urllib3\response.py", line 1248, in read_chunked
+    self._update_chunk_length()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\urllib3\response.py", line 1167, in _update_chunk_length
+    line = self._fp.fp.readline()  # type: ignore[union-attr]
+  File "E:\Anaconda\Lib\socket.py", line 719, in readinto
+    return self._sock.recv_into(b)
+           ~~~~~~~~~~~~~~~~~~~~^^^
+  File "E:\Anaconda\Lib\ssl.py", line 1304, in recv_into
+    return self.read(nbytes, buffer)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^
+  File "E:\Anaconda\Lib\ssl.py", line 1138, in read
+    return self._sslobj.read(len, buffer)
+           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+TimeoutError: The read operation timed out
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\requests\models.py", line 820, in generate
+    yield from self.raw.stream(chunk_size, decode_content=True)
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\urllib3\response.py", line 1088, in stream
+    yield from self.read_chunked(amt, decode_content=decode_content)
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\urllib3\response.py", line 1231, in read_chunked
+    with self._error_catcher():
+         ~~~~~~~~~~~~~~~~~~~^^
+  File "E:\Anaconda\Lib\contextlib.py", line 162, in __exit__
+    self.gen.throw(value)
+    ~~~~~~~~~~~~~~^^^^^^^
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\urllib3\response.py", line 784, in _error_catcher
+    raise ReadTimeoutError(self._pool, None, "Read timed out.") from e  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.ReadTimeoutError: HTTPSConnectionPool(host='openenergyplatform.org', port=443): Read timed out.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "E:\PF_CLEAN\tools\dave_generate_and_register.py", line 442, in run_register_only
+    grid_data, net, *_ = create_grid(own_area=geom, **create_kw)  # type: ignore
+                         ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\dave_core\create.py", line 329, in create_grid
+    create_mv_topology(grid_data)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\dave_core\topology\medium_voltage.py", line 55, in create_mv_topology
+    mvlv_substations = create_mv_lv_substations(grid_data)
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\dave_core\components\substations.py", line 71, in create_mv_lv_substations
+    mvlv_substations, meta_data = oep_request(table="ego_dp_mvlv_substation")
+                                  ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\dave_core\datapool\oep_request.py", line 75, in oep_request
+    request = get(
+        "".join(
+    ...<10 lines>...
+        timeout=30,
+    )
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\requests\api.py", line 73, in get
+    return request("get", url, params=params, **kwargs)
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\requests\api.py", line 59, in request
+    return session.request(method=method, url=url, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\requests_cache\session.py", line 183, in request
+    return super().request(method, url, *args, headers=headers, **kwargs)  # type: ignore
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\requests\sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\requests_cache\session.py", line 230, in send
+    response = self._send_and_cache(request, actions, cached_response, **kwargs)
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\requests_cache\session.py", line 254, in _send_and_cache
+    response = super().send(request, **kwargs)
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\requests\sessions.py", line 746, in send
+    r.content
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\requests\models.py", line 902, in content
+    self._content = b"".join(self.iter_content(CONTENT_CHUNK_SIZE)) or b""
+                    ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\requests\models.py", line 826, in generate
+    raise ConnectionError(e)
+requests.exceptions.ConnectionError: HTTPSConnectionPool(host='openenergyplatform.org', port=443): Read timed out.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "E:\PF_CLEAN\tools\dave_generate_and_register.py", line 549, in main
+    res = run_register_only(
+        api=api,
+    ...<7 lines>...
+        nuts_year=args.nuts_year,
+    )
+  File "E:\PF_CLEAN\tools\dave_generate_and_register.py", line 459, in run_register_only
+    raise SystemExit(f"DAVE 生成失败：{type(e).__name__}: {e}")
+SystemExit: DAVE 生成失败：ConnectionError: HTTPSConnectionPool(host='openenergyplatform.org', port=443): Read timed out.
+
+
+=== ENV ===
+OVERPASS_API_URL=https://lz4.overpass-api.de/api/interpreter
+OSMNX_OVERPASS_ENDPOINT=https://lz4.overpass-api.de/api/interpreter
+HTTP_PROXY=None
+HTTPS_PROXY=None

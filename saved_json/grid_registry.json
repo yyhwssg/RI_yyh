@@ -1,0 +1,9 @@
+{
+  "6ab87e733da5": {
+    "name": "dave_grid_dave_export_20250917_163534",
+    "pp_path": "E:/PF_CLEAN/saved_json/grids/6ab87e733da5/net.p",
+    "engine_hint": "pandapower",
+    "slack_bus_index": 0,
+    "recommend_inj_index": 6
+  }
+}

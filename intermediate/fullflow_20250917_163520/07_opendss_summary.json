@@ -1,0 +1,104 @@
+﻿{
+    "status":  "ok",
+    "engine":  "opendss",
+    "mode":  "summary",
+    "elapsed_sec":  31.329108600039035,
+    "result":  {
+                   "summary":  {
+                                   "system_losses":  {
+                                                         "P_loss_kW":  0.0,
+                                                         "Q_loss_kvar":  0.0
+                                                     },
+                                   "worst_bus_min_vpu":  {
+                                                             "bus":  "node_7_3",
+                                                             "min_vpu":  0.0
+                                                         },
+                                   "voltage_summary_per_bus":  {
+                                                                   "node_7_3":  {
+                                                                                    "max_vpu":  0.0,
+                                                                                    "over_limit":  false,
+                                                                                    "min_vpu":  0.0,
+                                                                                    "under_limit":  true
+                                                                                },
+                                                                   "node_7_4":  {
+                                                                                    "max_vpu":  0.0,
+                                                                                    "over_limit":  false,
+                                                                                    "min_vpu":  0.0,
+                                                                                    "under_limit":  true
+                                                                                },
+                                                                   "node_7_5":  {
+                                                                                    "max_vpu":  0.0,
+                                                                                    "over_limit":  false,
+                                                                                    "min_vpu":  0.0,
+                                                                                    "under_limit":  true
+                                                                                },
+                                                                   "node_5_0":  {
+                                                                                    "max_vpu":  0.0,
+                                                                                    "over_limit":  false,
+                                                                                    "min_vpu":  0.0,
+                                                                                    "under_limit":  true
+                                                                                },
+                                                                   "node_5_3":  {
+                                                                                    "max_vpu":  0.0,
+                                                                                    "over_limit":  false,
+                                                                                    "min_vpu":  0.0,
+                                                                                    "under_limit":  true
+                                                                                },
+                                                                   "node_7_0":  {
+                                                                                    "max_vpu":  0.0,
+                                                                                    "over_limit":  false,
+                                                                                    "min_vpu":  0.0,
+                                                                                    "under_limit":  true
+                                                                                },
+                                                                   "node_5_5":  {
+                                                                                    "max_vpu":  0.0,
+                                                                                    "over_limit":  false,
+                                                                                    "min_vpu":  0.0,
+                                                                                    "under_limit":  true
+                                                                                },
+                                                                   "node_5_1":  {
+                                                                                    "max_vpu":  0.0,
+                                                                                    "over_limit":  false,
+                                                                                    "min_vpu":  0.0,
+                                                                                    "under_limit":  true
+                                                                                },
+                                                                   "node_5_4":  {
+                                                                                    "max_vpu":  0.0,
+                                                                                    "over_limit":  false,
+                                                                                    "min_vpu":  0.0,
+                                                                                    "under_limit":  true
+                                                                                },
+                                                                   "node_7_1":  {
+                                                                                    "max_vpu":  0.0,
+                                                                                    "over_limit":  false,
+                                                                                    "min_vpu":  0.0,
+                                                                                    "under_limit":  true
+                                                                                },
+                                                                   "node_7_2":  {
+                                                                                    "max_vpu":  0.0,
+                                                                                    "over_limit":  false,
+                                                                                    "min_vpu":  0.0,
+                                                                                    "under_limit":  true
+                                                                                },
+                                                                   "node_5_2":  {
+                                                                                    "max_vpu":  0.0,
+                                                                                    "over_limit":  false,
+                                                                                    "min_vpu":  0.0,
+                                                                                    "under_limit":  true
+                                                                                }
+                                                               },
+                                   "limits":  {
+                                                  "vmin":  0.95,
+                                                  "vmax":  1.05
+                                              }
+                               },
+                   "aggregate":  {
+                                     "min_vpu":  0.0,
+                                     "max_vpu":  0.0,
+                                     "under_voltage_bus_count":  12,
+                                     "over_voltage_bus_count":  0,
+                                     "P_loss_kW":  0.0,
+                                     "Q_loss_kvar":  0.0
+                                 }
+               }
+}

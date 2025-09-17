@@ -1,0 +1,29 @@
+new circuit.auto basekv=20 pu=1.0 phases=3 bus1=node_5_0
+set defaultbasefreq=50
+clear
+set defaultbasefrequency=50
+New Vsource.Source bus1=node_5_0 phases=3 basekv=20.0 pu=1.0
+New Line.L_0 bus1=node_5_0 bus2=node_5_1 phases=3 length=3.600000000661239 units=km r1=0.122 x1=0.112 c1=304.0
+New Line.L_1 bus1=node_5_1 bus2=node_5_4 phases=3 length=0.898907981078326 units=km r1=0.122 x1=0.112 c1=304.0
+New Line.L_2 bus1=node_5_2 bus2=node_5_3 phases=3 length=3.600000000721775 units=km r1=0.122 x1=0.112 c1=304.0
+New Line.L_3 bus1=node_5_5 bus2=node_5_4 phases=3 length=3.600000000731088 units=km r1=0.122 x1=0.112 c1=304.0
+New Line.L_4 bus1=node_5_2 bus2=node_5_4 phases=3 length=3.600000000204891 units=km r1=0.122 x1=0.112 c1=304.0
+New Transformer.T_0 phases=3 windings=2 xhl=5.87755 %r=1.206
+~ wdg=1 bus=node_5_0 conn=wye kv=20.0 kva=630
+~ wdg=2 bus=node_7_0 conn=wye kv=0.4 kva=630
+New Transformer.T_1 phases=3 windings=2 xhl=5.87755 %r=1.206
+~ wdg=1 bus=node_5_1 conn=wye kv=20.0 kva=630
+~ wdg=2 bus=node_7_1 conn=wye kv=0.4 kva=630
+New Transformer.T_2 phases=3 windings=2 xhl=5.87755 %r=1.206
+~ wdg=1 bus=node_5_2 conn=wye kv=20.0 kva=630
+~ wdg=2 bus=node_7_2 conn=wye kv=0.4 kva=630
+New Transformer.T_3 phases=3 windings=2 xhl=5.87755 %r=1.206
+~ wdg=1 bus=node_5_3 conn=wye kv=20.0 kva=630
+~ wdg=2 bus=node_7_3 conn=wye kv=0.4 kva=630
+New Transformer.T_4 phases=3 windings=2 xhl=5.87755 %r=1.206
+~ wdg=1 bus=node_5_4 conn=wye kv=20.0 kva=630
+~ wdg=2 bus=node_7_4 conn=wye kv=0.4 kva=630
+New Transformer.T_5 phases=3 windings=2 xhl=5.87755 %r=1.206
+~ wdg=1 bus=node_5_5 conn=wye kv=20.0 kva=630
+~ wdg=2 bus=node_7_5 conn=wye kv=0.4 kva=630
+

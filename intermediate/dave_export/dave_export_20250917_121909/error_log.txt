@@ -1,0 +1,176 @@
+=== ERROR CONTEXT ===
+stage: main
+
+=== TRACEBACK ===
+Traceback (most recent call last):
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\urllib3\connectionpool.py", line 773, in urlopen
+    self._prepare_proxy(conn)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\urllib3\connectionpool.py", line 1042, in _prepare_proxy
+    conn.connect()
+    ~~~~~~~~~~~~^^
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\urllib3\connection.py", line 790, in connect
+    sock_and_verified = _ssl_wrap_socket_and_match_hostname(
+        sock=sock,
+    ...<14 lines>...
+        assert_fingerprint=self.assert_fingerprint,
+    )
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\urllib3\connection.py", line 969, in _ssl_wrap_socket_and_match_hostname
+    ssl_sock = ssl_wrap_socket(
+        sock=sock,
+    ...<8 lines>...
+        tls_in_tls=tls_in_tls,
+    )
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\urllib3\util\ssl_.py", line 480, in ssl_wrap_socket
+    ssl_sock = _ssl_wrap_socket_impl(sock, context, tls_in_tls, server_hostname)
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\urllib3\util\ssl_.py", line 524, in _ssl_wrap_socket_impl
+    return ssl_context.wrap_socket(sock, server_hostname=server_hostname)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\truststore\_api.py", line 121, in wrap_socket
+    ssl_sock = self._ctx.wrap_socket(
+        sock,
+    ...<4 lines>...
+        session=session,
+    )
+  File "E:\Anaconda\Lib\ssl.py", line 455, in wrap_socket
+    return self.sslsocket_class._create(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        sock=sock,
+        ^^^^^^^^^^
+    ...<5 lines>...
+        session=session
+        ^^^^^^^^^^^^^^^
+    )
+    ^
+  File "E:\Anaconda\Lib\ssl.py", line 1076, in _create
+    self.do_handshake()
+    ~~~~~~~~~~~~~~~~~^^
+  File "E:\Anaconda\Lib\ssl.py", line 1372, in do_handshake
+    self._sslobj.do_handshake()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+ConnectionResetError: [WinError 10054] 远程主机强迫关闭了一个现有的连接。
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\requests\adapters.py", line 644, in send
+    resp = conn.urlopen(
+        method=request.method,
+    ...<9 lines>...
+        chunked=chunked,
+    )
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\urllib3\connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+        method, url, error=new_e, _pool=self, _stacktrace=sys.exc_info()[2]
+    )
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\urllib3\util\retry.py", line 474, in increment
+    raise reraise(type(error), error, _stacktrace)
+          ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\urllib3\util\util.py", line 38, in reraise
+    raise value.with_traceback(tb)
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\urllib3\connectionpool.py", line 773, in urlopen
+    self._prepare_proxy(conn)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\urllib3\connectionpool.py", line 1042, in _prepare_proxy
+    conn.connect()
+    ~~~~~~~~~~~~^^
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\urllib3\connection.py", line 790, in connect
+    sock_and_verified = _ssl_wrap_socket_and_match_hostname(
+        sock=sock,
+    ...<14 lines>...
+        assert_fingerprint=self.assert_fingerprint,
+    )
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\urllib3\connection.py", line 969, in _ssl_wrap_socket_and_match_hostname
+    ssl_sock = ssl_wrap_socket(
+        sock=sock,
+    ...<8 lines>...
+        tls_in_tls=tls_in_tls,
+    )
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\urllib3\util\ssl_.py", line 480, in ssl_wrap_socket
+    ssl_sock = _ssl_wrap_socket_impl(sock, context, tls_in_tls, server_hostname)
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\urllib3\util\ssl_.py", line 524, in _ssl_wrap_socket_impl
+    return ssl_context.wrap_socket(sock, server_hostname=server_hostname)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\truststore\_api.py", line 121, in wrap_socket
+    ssl_sock = self._ctx.wrap_socket(
+        sock,
+    ...<4 lines>...
+        session=session,
+    )
+  File "E:\Anaconda\Lib\ssl.py", line 455, in wrap_socket
+    return self.sslsocket_class._create(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        sock=sock,
+        ^^^^^^^^^^
+    ...<5 lines>...
+        session=session
+        ^^^^^^^^^^^^^^^
+    )
+    ^
+  File "E:\Anaconda\Lib\ssl.py", line 1076, in _create
+    self.do_handshake()
+    ~~~~~~~~~~~~~~~~~^^
+  File "E:\Anaconda\Lib\ssl.py", line 1372, in do_handshake
+    self._sslobj.do_handshake()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+urllib3.exceptions.ProtocolError: ('Connection aborted.', ConnectionResetError(10054, '远程主机强迫关闭了一个现有的连接。', None, 10054, None))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "E:\PF_CLEAN\tools\dave_generate_and_register.py", line 442, in run_register_only
+    grid_data, net, *_ = create_grid(own_area=geom, **create_kw)  # type: ignore
+                         ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\dave_core\create.py", line 329, in create_grid
+    create_mv_topology(grid_data)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\dave_core\topology\medium_voltage.py", line 55, in create_mv_topology
+    mvlv_substations = create_mv_lv_substations(grid_data)
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\dave_core\components\substations.py", line 71, in create_mv_lv_substations
+    mvlv_substations, meta_data = oep_request(table="ego_dp_mvlv_substation")
+                                  ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\dave_core\datapool\oep_request.py", line 75, in oep_request
+    request = get(
+        "".join(
+    ...<10 lines>...
+        timeout=30,
+    )
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\requests\api.py", line 73, in get
+    return request("get", url, params=params, **kwargs)
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\requests\api.py", line 59, in request
+    return session.request(method=method, url=url, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\requests_cache\session.py", line 183, in request
+    return super().request(method, url, *args, headers=headers, **kwargs)  # type: ignore
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\requests\sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\requests_cache\session.py", line 230, in send
+    response = self._send_and_cache(request, actions, cached_response, **kwargs)
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\requests_cache\session.py", line 254, in _send_and_cache
+    response = super().send(request, **kwargs)
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\requests\sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+  File "E:\PF_CLEAN\.venv\Lib\site-packages\requests\adapters.py", line 659, in send
+    raise ConnectionError(err, request=request)
+requests.exceptions.ConnectionError: ('Connection aborted.', ConnectionResetError(10054, '远程主机强迫关闭了一个现有的连接。', None, 10054, None))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "E:\PF_CLEAN\tools\dave_generate_and_register.py", line 549, in main
+    res = run_register_only(
+        api=api,
+    ...<7 lines>...
+        nuts_year=args.nuts_year,
+    )
+  File "E:\PF_CLEAN\tools\dave_generate_and_register.py", line 459, in run_register_only
+    raise SystemExit(f"DAVE 生成失败：{type(e).__name__}: {e}")
+SystemExit: DAVE 生成失败：ConnectionError: ('Connection aborted.', ConnectionResetError(10054, '远程主机强迫关闭了一个现有的连接。', None, 10054, None))
+
+
+=== ENV ===
+OVERPASS_API_URL=https://lz4.overpass-api.de/api/interpreter
+OSMNX_OVERPASS_ENDPOINT=https://lz4.overpass-api.de/api/interpreter
+HTTP_PROXY=None
+HTTPS_PROXY=None

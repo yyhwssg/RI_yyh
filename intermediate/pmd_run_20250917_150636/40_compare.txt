@@ -1,0 +1,3 @@
+﻿== PMD vs OpenDSS ==
+PMD: termination_status = ; model = ; solver_time_sec = 
+OpenDSS: worst_bus = ; min_vpu = 

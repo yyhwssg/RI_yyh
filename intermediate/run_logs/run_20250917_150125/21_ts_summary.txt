@@ -1,0 +1,6 @@
+﻿engine: pandapower
+hours_feasible: 0/24
+worst_bus_min_vpu: 0.0
+termination_status counts:
+  CHECK : 21
+  ERROR:LoadflowNotConverged : 3
