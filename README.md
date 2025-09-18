@@ -1,8 +1,7 @@
-﻿<YOUR_REPO> — Reproducible Quick-Run Guide (README.txt)
+﻿RI_yyh — Reproducible Quick-Run Guide (README.txt)
 
-Goal
+GOAL
 -----
-
 From a clean machine to a working demo that:
 1) Generates a 1 km² MV network (DAVE),
 2) Registers it to the local API,
@@ -12,63 +11,57 @@ From a clean machine to a working demo that:
 This guide avoids machine-specific paths and does not require pushing large temporary files to GitHub.
 
 
-One-time Setup
+ONE-TIME SETUP
 --------------
+1) Install: Python 3.11+ and Julia 1.10+ (1.11 recommended).
 
-1) Install Python 3.11+ and Julia 1.10+ (1.11 recommended).
-
-2) Clone the repo:
-
-- Windows PowerShell:
-  git clone https://github.com/<your-org-or-name>/<YOUR_REPO>.git
-  cd <YOUR_REPO>
-
-- macOS/Linux (bash):
-  git clone https://github.com/<your-org-or-name>/<YOUR_REPO>.git
-  cd <YOUR_REPO>
+2) Clone the repo (official URL):
+   - Windows PowerShell:
+       git clone https://github.com/yyhwssg/RI_yyh.git
+       cd RI_yyh
+   - macOS/Linux (bash):
+       git clone https://github.com/yyhwssg/RI_yyh.git
+       cd RI_yyh
 
 3) Create venv and install Python deps:
-
-- Windows PowerShell:
-  python -m venv .venv
-  .\.venv\Scripts\Activate.ps1
-  pip install -U pip wheel
-  pip install -r requirements.txt
-
-- macOS/Linux (bash):
-  python3 -m venv .venv
-  source .venv/bin/activate
-  pip install -U pip wheel
-  pip install -r requirements.txt
+   - Windows PowerShell:
+       python -m venv .venv
+       .\.venv\Scripts\Activate.ps1
+       pip install -U pip wheel
+       pip install -r requirements.txt
+   - macOS/Linux (bash):
+       python3 -m venv .venv
+       source .venv/bin/activate
+       pip install -U pip wheel
+       pip install -r requirements.txt
 
 4) Start the API (keep it running in this terminal):
+   - All:
+       uvicorn api.main:app --host 127.0.0.1 --port 8000
+     (Open a second terminal for the steps below.)
 
-- All:
-  uvicorn api.main:app --host 127.0.0.1 --port 8000
-  # Open a second terminal for the following steps.
 
-
-Prepare Julia Dependencies (first run only)
+PREPARE JULIA DEPENDENCIES (first run only)
 -------------------------------------------
-
-Open a new terminal at the repo root:
+Open a new terminal at the repo root.
 
 - Windows PowerShell:
-  # optional if Julia is not in PATH:
-  # $env:JULIA_EXE="C:\Program Files\Julia-1.11.6\bin\julia.exe"
-  julia --project=./scripts ./scripts/_check_env.jl
+    # optional if Julia is not in PATH:
+    # $env:JULIA_EXE="C:\Program Files\Julia-1.11.6\bin\julia.exe"
+    julia --project=./scripts ./scripts/_check_env.jl
 
 - macOS/Linux (bash):
-  julia --project=./scripts ./scripts/_check_env.jl
+    julia --project=./scripts ./scripts/_check_env.jl
 
-This script installs/repairs the required Julia packages (OpenDSSDirect, PowerModelsDistribution, Ipopt). If the registry is flaky, it falls back to direct Git URLs.
+This script installs/repairs the required Julia packages (OpenDSSDirect, PowerModelsDistribution, Ipopt).
+If the registry is flaky, it falls back to direct Git URLs.
 
 
 ONE-SHOT QUICK RUN (fast, no 24h)
 ---------------------------------
 
-Windows PowerShell — copy ALL below and press Enter:
----------------------------------------------------
+WINDOWS POWERSHELL — copy ALL below and press Enter:
+----------------------------------------------------
 # Activate venv
 .\.venv\Scripts\Activate.ps1
 
@@ -151,7 +144,7 @@ $r_inj   | ConvertTo-Json -Depth 50 | Out-File -Encoding utf8 (Join-Path $SAVE "
 "Saved to $SAVE"
 
 
-macOS / Linux (bash) — copy ALL below and run:
+MACOS / LINUX (bash) — copy ALL below and run:
 ----------------------------------------------
 # Activate venv
 source .venv/bin/activate
@@ -208,18 +201,17 @@ REQ_INJ="{\"grid_id\":\"$GRID\",\"engine\":\"pmd\",\"mode\":\"summary\",\"vmin\"
 curl -s -X POST http://127.0.0.1:8000/pf/run -H 'Content-Type: application/json' -d "$REQ_INJ"
 
 
-Expected Output (quick check)
+EXPECTED OUTPUT (quick check)
 -----------------------------
-
 - Console shows something like:
-  PMD(empty) → termination = LOCALLY_SOLVED
-  PMD(injection) → termination = LOCALLY_SOLVED
-- Optional JSONs saved under intermediate/quickcheck_YYYYMMDD_HHMMSS/.
+    PMD(empty) → termination = LOCALLY_SOLVED
+    PMD(injection) → termination = LOCALLY_SOLVED
+- Optional JSONs saved under:
+    intermediate/quickcheck_YYYYMMDD_HHMMSS/
 
 
-.gitignore (recommended)
+.GITIGNORE (recommended)
 ------------------------
-
 .venv/
 **/__pycache__/
 *.pyc
@@ -239,35 +231,31 @@ scripts/Manifest.toml
 .ipynb_checkpoints/
 
 
-What each step does (plain English)
+WHAT EACH STEP DOES (plain English)
 -----------------------------------
-
 • Create venv & install requirements.txt
   Sets up an isolated Python environment so the demo doesn’t depend on global packages.
 
 • Start API (uvicorn api.main:app)
-  Launches the local FastAPI service that exposes endpoints like /grid/register, /pf/run, etc. All later steps talk to this server at http://127.0.0.1:8000.
+  Launches the local FastAPI service exposing /grid/register, /pf/run, etc. All later steps talk to http://127.0.0.1:8000.
 
 • Julia _check_env.jl
-  Installs and verifies Julia packages (OpenDSSDirect, PowerModelsDistribution, Ipopt). If the official registry is slow, it falls back to Git URLs.
+  Installs and verifies Julia packages (OpenDSSDirect, PowerModelsDistribution, Ipopt). Falls back to Git URLs if the public registry is slow.
 
 • DAVE generate & register
-  Builds a synthetic MV network from OpenStreetMap for the provided AOI polygon (micro_bremen.geojson). Saves to intermediate/dave_export/.../net_power.json. Also registers the grid once automatically.
+  Builds a synthetic MV network from OpenStreetMap for the AOI (micro_bremen.geojson). Saves to intermediate/dave_export/.../net_power.json and registers once automatically.
 
 • Re-register latest net_power.json
-  Explicitly registers the latest PP JSON again to get a stable grid_id (used by subsequent calls). This avoids ambiguity when multiple exports exist.
+  Registers the newest PP JSON again to get a stable grid_id for subsequent calls.
 
 • Convert PP JSON to OpenDSS (ppjson_to_dss.py)
-  Produces master.dss and busmap.csv. The DSS file is the input for both OpenDSSDirect and PMD (via PMD’s DSS parser).
+  Produces master.dss and busmap.csv — inputs for OpenDSSDirect and PMD.
 
 • Attach DSS path to grid
-  Stores the DSS master path in the registry so the API knows where that grid’s DSS lives (use forward slashes for cross-platform compatibility).
+  Stores the DSS master path in the registry so the API knows where the grid’s DSS lives (forward slashes work cross-platform).
 
-• PMD snapshot (empty)
-  Runs a single optimization-based power flow without any extra injections. We check feasibility (termination_status, model, solver_time_sec). This is fast, safe, and does not rely on voltage scaling assumptions.
-
-• PMD snapshot (single-bus injection)
-  Picks the first bus from busmap.csv and injects 5 kW at pf=0.95. This verifies the pipeline also works with a small disturbance.
+• PMD snapshot (empty and single-bus injection)
+  Runs fast optimization-based PF with no/with small injection to sanity-check feasibility and the full pipeline.
 
 • Save outputs (optional)
-  Dumps the returned JSONs to intermediate/quickcheck_* for grading, sharing, or debugging.
+  Dumps returned JSONs to intermediate/quickcheck_* for sharing or debugging.
