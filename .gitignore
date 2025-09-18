@@ -1,36 +1,83 @@
-﻿# Python venv / cache
+﻿# ===== Python env & caches =====
 .venv/
 venv/
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+pip-wheel-metadata/
+.python-version
 
-# Julia / artifacts
+# ===== Julia caches (keep root Project/Manifest) =====
 .julia/
 *.ji
+artifacts/
+deps/
 
-# IDE / OS
+# ===== IDE / OS =====
 .vscode/
+.idea/
+*.code-workspace
 .DS_Store
 Thumbs.db
+ehthumbs.db
+desktop.ini
 
-# Large / intermediate outputs
-intermediate/
-saved_json/grids/
-saved_json/grid_registry.json
-data/dss/
+# ===== Logs & scratch =====
+logs/
 run_logs/
 *.log
+*.out
+*.err
 
-# OSM / DAVE caches
+# ===== Intermediate outputs (DSS/PP/exports) =====
+intermediate/
+
+# ===== Saved grids/registry (运行时产物) =====
+saved_json/grids/
+saved_json/grid_registry.json
+
+# ===== Data exports / generated DSS =====
+data/dss/
+
+# ===== OSM / DAVE caches =====
 intermediate/dave_cache/
 .osmnx_cache/
+.cache/
 
-# Binary blobs / databases
+# ===== Build artifacts (PyInstaller / etc.) =====
+build/
+dist/
+*.spec
+
+# ===== Notebooks checkpoint =====
+.ipynb_checkpoints/
+
+# ===== Secrets / env (保留 .env.example) =====
+.env
+.env.*
+!.env.example
+
+# ===== 大文件一律忽略（在下方白名单开放需要随包的大文件） =====
 *.sqlite
 *.h5
-*.pkl
+*.hdf5
 *.parquet
+*.feather
+*.zip
+*.7z
+*.tar
+*.tar.gz
+*.rar
+*.pkl
+*.pt
+*.onnx
 
-# Build artifacts
-dist/
-build/
+# ===== 仅白名单：必须随仓库出货的离线缓存 =====
+!repo_assets/
+!repo_assets/required_caches/
+!repo_assets/required_caches/*.sqlite
+!repo_assets/required_caches/*.h5
+!repo_assets/required_caches/*.zip
+!repo_assets/required_caches/*.tar.gz
