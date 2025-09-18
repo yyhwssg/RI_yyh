@@ -1,4 +1,4 @@
-# Python venv / cache
+﻿# Python venv / cache
 .venv/
 venv/
 __pycache__/
@@ -25,6 +25,12 @@ run_logs/
 intermediate/dave_cache/
 .osmnx_cache/
 
-# Build
+# Binary blobs / databases
+*.sqlite
+*.h5
+*.pkl
+*.parquet
+
+# Build artifacts
 dist/
 build/
