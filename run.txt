@@ -130,3 +130,16 @@ $r_empty | ConvertTo-Json -Depth 50 | Out-File -Encoding utf8 (Join-Path $SAVE "
 $r_inj   | ConvertTo-Json -Depth 50 | Out-File -Encoding utf8 (Join-Path $SAVE "pmd_injection_summary.json")
 $tsRun   | ConvertTo-Json -Depth 50 | Out-File -Encoding utf8 (Join-Path $SAVE "pmd_timeseries_24h.json")
 "保存目录：$SAVE"
+
+
+
+cd E:\PF_CLEAN   # 到你的仓库根目录
+
+# 1) 一次性加入所有改动（包含新增、修改、删除）
+git add -A
+
+# 2) 提交（随便写个说明）
+git commit -m "chore: update all changes"
+
+# 3) 推送到 GitHub（你已设置 SSH 远端）
+git push origin main
