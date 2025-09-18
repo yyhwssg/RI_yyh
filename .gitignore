@@ -1,40 +1,30 @@
-# ===== Python =====
+# Python venv / cache
 .venv/
-env/
+venv/
 __pycache__/
-*.py[cod]
-*.pyd
-*.pyo
-*.egg-info/
-.ipynb_checkpoints/
+*.pyc
 
-# ===== ???? / ?? =====
-intermediate/
-run_logs/
-run.txt
-*.sqlite
-.cache/
-.osmnx/
-.dave_cache/
+# Julia / artifacts
+.julia/
+*.ji
 
-# ===== ???? =====
-saved_json/grids/
-data/dss/
-pp_raw.json
-master.dss
-busmap.csv
-
-# ???????
-!saved_json/grid_registry.json
-
-# ===== VS Code =====
+# IDE / OS
 .vscode/
-
-# ===== OS ?? =====
 .DS_Store
 Thumbs.db
 
-# ===== Julia??????????????? Project/Manifest?=====
-.julia/
-!scripts/Project.toml
-!scripts/Manifest.toml
+# Large / intermediate outputs
+intermediate/
+saved_json/grids/
+saved_json/grid_registry.json
+data/dss/
+run_logs/
+*.log
+
+# OSM / DAVE caches
+intermediate/dave_cache/
+.osmnx_cache/
+
+# Build
+dist/
+build/

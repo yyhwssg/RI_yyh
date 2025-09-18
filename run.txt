@@ -1,0 +1,132 @@
+# ========= 0) 基础变量 / 环境 =========
+$ROOT = "E:\PF_CLEAN"               # ← 改成你的工程根目录
+$API  = "http://127.0.0.1:8000"
+
+# 激活虚拟环境（可选：若你已在 .venv 里，就跳过）
+if (Test-Path "$ROOT\.venv\Scripts\Activate.ps1") {
+  & "$ROOT\.venv\Scripts\Activate.ps1"
+}
+
+# 代理全部清理，避免 127.0.0.1 走代理
+Remove-Item Env:\HTTP_PROXY  -ErrorAction SilentlyContinue
+Remove-Item Env:\HTTPS_PROXY -ErrorAction SilentlyContinue
+Remove-Item Env:\http_proxy  -ErrorAction SilentlyContinue
+Remove-Item Env:\https_proxy -ErrorAction SilentlyContinue
+
+# Overpass 用稳定镜像（你给的）
+$env:OVERPASS_API_URL="https://lz4.overpass-api.de/api/interpreter"
+$env:OSMNX_OVERPASS_ENDPOINT=$env:OVERPASS_API_URL
+# 可选：调长 OSMnx 超时
+$env:OSMNX_REQUESTS_TIMEOUT = "180"
+
+
+# ========= 1) DAVE 生成 + 注册（AOI：micro_bremen.geojson） =========
+# 只生成 MV/roads，且 --no_probe，尽量减少外部请求
+$AOI = Join-Path $ROOT "data\aoi\micro_bremen.geojson"
+if (!(Test-Path $AOI)) { throw "缺少 AOI 文件：$AOI" }
+
+python "$ROOT\tools\dave_generate_and_register.py" `
+  --selector own_area `
+  --own_area_geojson "$AOI" `
+  --geodata roads `
+  --power-levels mv `
+  --no_probe
+
+# ========= 2) 选择最新 net_power.json 并再注册一次，拿到稳定 GRID =========
+$PPJSON = Get-ChildItem "$ROOT\intermediate\dave_export\dave_export_*" -Filter net_power.json -Recurse |
+          Sort-Object LastWriteTime -Desc | Select-Object -Expand FullName -First 1
+if (-not $PPJSON) { throw "没找到 net_power.json（请检查 DAVE 输出）" }
+"PPJSON = $PPJSON"
+
+$regBody = @{ name=("fullflow_" + (Get-Date -Format "yyyyMMdd_HHmmss")); pp_json_path=$PPJSON } | ConvertTo-Json
+$reg = Invoke-RestMethod -Method Post "$API/grid/register" -Body $regBody -ContentType "application/json" -TimeoutSec 120
+$GRID = $reg.grid_id
+"GRID = $GRID"
+
+# ========= 3) PP JSON → OpenDSS（master.dss + busmap.csv） =========
+$OUT_DSS = Join-Path $ROOT ("intermediate\dss_" + (Get-Date -Format "yyyyMMdd_HHmmss"))
+python "$ROOT\tools\ppjson_to_dss.py" --pp_json "$PPJSON" --out_dir "$OUT_DSS"
+
+$MASTER = Join-Path $OUT_DSS "master.dss"
+$BUSMAP = Join-Path $OUT_DSS "busmap.csv"
+if (!(Test-Path $MASTER)) { throw "master.dss 不存在：$MASTER" }
+if (!(Test-Path $BUSMAP)) { throw "busmap.csv 不存在：$BUSMAP" }
+"DSS = $MASTER"
+"BUSMAP = $BUSMAP"
+
+# ========= 4) 绑定 DSS 到该 GRID（保存在注册表里） =========
+$DSS_UNIX = $MASTER -replace '\\','/'   # Julia/跨平台更稳
+$attachBody = @{ grid_id=$GRID; dss_master_path=$DSS_UNIX } | ConvertTo-Json
+Invoke-RestMethod -Method Post "$API/grid/attach_dss" -Body $attachBody -ContentType "application/json" | Out-Host
+
+# ========= 5) PMD 快照：空注入 & 单点注入 =========
+# 5.1 空注入（engine=pmd, summary）
+$req_empty = @{
+  grid_id         = $GRID
+  engine          = "pmd"
+  mode            = "summary"
+  vmin            = 0.95
+  vmax            = 1.05
+  dss_master_path = $DSS_UNIX
+  injections      = @{}
+} | ConvertTo-Json -Depth 10
+$r_empty = Invoke-RestMethod -Method Post "$API/pf/run" -Body $req_empty -ContentType "application/json" -TimeoutSec 900
+"PMD(empty) → termination = $($r_empty.result.summary.termination_status)"
+
+# 5.2 选一个母线做注入（5 kW, pf=0.95）
+$bus = (Import-Csv $BUSMAP)[0].bus_name
+$pf  = 0.95
+$qratio = [math]::Tan([math]::Acos($pf))
+$inj = @{}; $inj[$bus] = @([double]5.0, [double](5.0*$qratio))   # [P_kW, Q_kVAr]
+
+$req_inj = @{
+  grid_id         = $GRID
+  engine          = "pmd"
+  mode            = "summary"
+  vmin            = 0.95
+  vmax            = 1.05
+  dss_master_path = $DSS_UNIX
+  injections      = $inj
+} | ConvertTo-Json -Depth 10
+$r_inj = Invoke-RestMethod -Method Post "$API/pf/run" -Body $req_inj -ContentType "application/json" -TimeoutSec 900
+"PMD(injection) → termination = $($r_inj.result.summary.termination_status)"
+
+# ========= 6) 构建 24h 负荷曲线（BDEW/H0 简化）并做 PMD 时序 =========
+$today = Get-Date -Format "yyyy-MM-dd"
+# —— 修复点 ①：用插值变量构造 specs，避免 $bus: 被当成作用域前缀 ——
+$spec = "${bus}:3500:0.95"
+$buildReq = @{
+  hours = 24
+  date  = $today
+  specs = @($spec)            # ← 这里一定是 @($spec)
+  code  = "H0"
+} | ConvertTo-Json -Depth 6
+$profResp = Invoke-RestMethod -Method Post "$API/profiles/build" -Body $buildReq -ContentType "application/json"
+$profiles = $profResp.profiles
+# —— 修复点 ②：动态键用 $($bus) 访问 ——
+"profiles length(P) = " + $profiles.$($bus).P_kW.Count
+"first 3 Q_kVAr = " + ($profiles.$($bus).Q_kVAr[0..2] -join ", ")
+
+$tsReq = @{
+  grid_id         = $GRID
+  engine          = "pmd"
+  mode            = "summary"
+  hours           = 24
+  vmin            = 0.95
+  vmax            = 1.05
+  dss_master_path = $DSS_UNIX
+  profiles        = $profiles
+} | ConvertTo-Json -Depth 12
+$tsRun = Invoke-RestMethod -Method Post "$API/pf/run_timeseries" -Body $tsReq -ContentType "application/json" -TimeoutSec 1800
+"TS summary → hours=$($tsRun.summary.hours), feasible=$($tsRun.summary.hours_feasible), worst_min=$($tsRun.summary.worst_bus_min_vpu)"
+($tsRun.series.termination_status | Group-Object | Select Name,Count) | Format-Table -AutoSize
+
+# ========= 7) 存档 =========
+$STAMP = Get-Date -Format "yyyyMMdd_HHmmss"
+$SAVE  = Join-Path $ROOT ("intermediate\fullflow_" + $STAMP)
+New-Item -ItemType Directory -Force -Path $SAVE | Out-Null
+
+$r_empty | ConvertTo-Json -Depth 50 | Out-File -Encoding utf8 (Join-Path $SAVE "pmd_empty_summary.json")
+$r_inj   | ConvertTo-Json -Depth 50 | Out-File -Encoding utf8 (Join-Path $SAVE "pmd_injection_summary.json")
+$tsRun   | ConvertTo-Json -Depth 50 | Out-File -Encoding utf8 (Join-Path $SAVE "pmd_timeseries_24h.json")
+"保存目录：$SAVE"
