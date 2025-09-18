@@ -325,6 +325,36 @@ def _probe_buses(api: str, grid_id: str) -> List[str]:
 
 # ======== 可选 24h 时序（若服务支持） ========
 def _fetch_slp(api: str, code: str, date: str, hours: int) -> List[float]:
+    # 优先尝试 BDEW（demandlib，含季节/日型），失败回退到 fallback SLP
+    try:
+        r = requests.get(f"{api.rstrip('/')}/profiles/bdew",
+                         params={"code": code, "date": date, "hours": hours}, timeout=30)
+        if r.status_code == 200:
+            js = r.json() or {}
+            prof = js.get("profile")
+            if isinstance(prof, list) and len(prof) == hours and (abs(sum(prof) - 1.0) < 1e-6 or sum(prof) > 0):
+                # 再归一化一次以防数值误差
+                s = float(sum(prof)) or 1.0
+                return [float(x)/s for x in prof]
+    except Exception:
+        pass
+    # 回退：用现有 /profiles/slp（演示曲线）
+    try:
+        r = requests.get(f"{api.rstrip('/')}/profiles/slp",
+                         params={"code": code, "date": date, "hours": hours}, timeout=30)
+        if r.status_code == 200:
+            js = r.json() or {}
+            prof = js.get("profile")
+            if isinstance(prof, list) and len(prof) == hours:
+                return [float(x) for x in prof]
+    except Exception:
+        pass
+    # 最后兜底：正弦日曲线
+    import math
+    raw = [max(0.0, 0.4 + 0.6 * math.sin((i + 7) / hours * math.pi)) for i in range(hours)]
+    s = sum(raw) or 1.0
+    return [v / s for v in raw]
+
     try:
         r = requests.get(f"{api.rstrip('/')}/profiles/slp", params={"code": code, "date": date, "hours": hours}, timeout=30)
         if r.status_code == 200:

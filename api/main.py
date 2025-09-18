@@ -5,12 +5,20 @@ PF Service (pandapower + OpenDSS/PMD via Julia)
 Endpoints
 - GET  /health
 - GET  /health/deps
+- GET  /version
 - GET  /profiles/slp
-- POST /grid/register      : load pp (.json/.p), auto-fix slack, persist pickle, return grid_id + hints
-- POST /grid/fix_slack     : re-run slack fixer on an existing grid_id
-- GET  /bus/list           : list bus indices & names
-- POST /pf/run             : single snapshot PF (pandapower/opendss/pmd)
-- POST /pf/run_timeseries  : timeseries PF with P/Q profiles (per-hour try/except; never 500 for PP branch)
+- GET  /profiles/bdew
+- POST /grid/register       : load pp (.json/.p), auto-fix slack, persist pickle, return grid_id + hints
+- POST /grid/fix_slack      : re-run slack fixer on an existing grid_id
+- GET  /grid/list           : list registered grids
+- GET  /grid/get            : get registry info of a grid_id
+- POST /grid/attach_dss     : attach a DSS master path to a grid_id
+- GET  /bus/list            : list bus indices & names (pandapower)
+- GET  /dss/bus/list        : list bus names from OpenDSS via Julia (raw)
+- POST /profiles/build      : build P/Q timeseries profiles from annual_kWh and pf
+- POST /pf/run              : single-snapshot PF (pandapower/opendss/pmd)
+- POST /pf/run_timeseries   : timeseries PF with P/Q profiles (per-hour, guarded)
+- POST /pf/run_dss          : direct OpenDSS/PMD bridge (container-visible path)
 
 Registry
 - saved_json/grid_registry.json
@@ -245,61 +253,6 @@ def _pp_summary(net, vmin: float, vmax: float) -> dict:
         "limits": {"vmin": vmin, "vmax": vmax},
     }
 
-def _run_julia_pmd(master_path: str, injections: Dict[str, List[float]], mode: str = "summary") -> dict:
-    """
-    调用 Julia 脚本 /app/scripts/run_pf_dss.jl，engine 固定传 'pmd'
-    - master_path: DSS 主文件容器内路径
-    - injections: 形如 {"bus1":[P_kW,Q_kVAr], ...}
-    - mode: "summary" | "raw"
-    返回：结构化 JSON（不抛异常）
-    """
-    jl = os.environ.get("JULIA_EXE") or "julia"
-    script = "/app/scripts/run_pf_dss.jl"  # ← 你的脚本会以 -v 映射到这里
-    inj_json = json.dumps(injections or {}, ensure_ascii=False)
-    cmd = [jl, script, master_path, inj_json, (mode or "summary"), "pmd"]
-
-    t0 = time.perf_counter()
-    p = subprocess.run(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        encoding="utf-8",   # ★ 修正：统一按 UTF-8 解码
-        errors="ignore",    # ★ 修正：忽略无法解码的字节（避免 GBK 报错）
-        check=False,
-    )
-    elapsed = time.perf_counter() - t0
-
-    if p.returncode != 0:
-        return {
-            "status": "error",
-            "engine": "pmd",
-            "mode": mode,
-            "elapsed_sec": elapsed,
-            "error_type": "JuliaError",
-            "stderr": p.stderr,
-        }
-
-    try:
-        obj = json.loads(p.stdout.strip() or "{}")
-        return {
-            "status": "ok",
-            "engine": "pmd",
-            "mode": mode,
-            "elapsed_sec": elapsed,
-            "result": obj
-        }
-    except Exception:
-        return {
-            "status": "error",
-            "engine": "pmd",
-            "mode": mode,
-            "elapsed_sec": elapsed,
-            "error_type": "JSONParseError",
-            "stdout": p.stdout,
-            "stderr": p.stderr,
-        }
-
 def _aggregate(summary_obj: dict, vmin: float, vmax: float) -> dict:
     bus_sum = (summary_obj or {}).get("voltage_summary_per_bus", {}) or {}
     min_v = +1e9; max_v = -1e9; under = 0; over = 0
@@ -320,6 +273,9 @@ def _aggregate(summary_obj: dict, vmin: float, vmax: float) -> dict:
         "P_loss_kW": losses.get("P_loss_kW"), "Q_loss_kvar": losses.get("Q_loss_kvar"),
     }
 
+def _aggregate_opendss_summary(summ: dict, vmin: float, vmax: float) -> dict:
+    return _aggregate(summ or {}, vmin, vmax)
+
 # ---------- Julia runner (OpenDSS / PMD) ----------
 JULIA_EXE = os.environ.get("JULIA_EXE") or "julia"
 JL_RUNNER = os.path.join(APP_ROOT, "scripts", "run_pf_dss.jl").replace("\\", "/")
@@ -337,8 +293,8 @@ def _run_julia_pf(master_dss: str, injections: Dict[str, List[float]], mode: str
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            encoding="utf-8",   # ★ 修正：UTF-8
-            errors="ignore",    # ★ 修正：忽略错误
+            encoding="utf-8",
+            errors="ignore",
             check=False
         )
     except Exception as e:
@@ -353,19 +309,16 @@ def _run_julia_pf(master_dss: str, injections: Dict[str, List[float]], mode: str
         raise HTTPException(500, f"invalid JSON from julia: {stdout[:400]}")
     return data
 
-def _aggregate_opendss_summary(summ: dict, vmin: float, vmax: float) -> dict:
-    # OpenDSS summary keys are aligned with _pp_summary → we can reuse _aggregate
-    return _aggregate(summ or {}, vmin, vmax)
-
 # ---------- API models ----------
 class GridRegisterReq(BaseModel):
     name: Optional[str] = None
     pp_json_path: Optional[str] = None
     pp_pickle_path: Optional[str] = None  # .p
 
-class GridRegisterDSSReq(BaseModel):
-    name: Optional[str] = None
-    dss_master_path: str  # 容器内路径，如 /work/my_dss/master.dss
+class GridAttachDSSReq(BaseModel):
+    grid_id: str
+    dss_master_path: str  # 容器内或本机可见路径
+    # EN: Path to the OpenDSS master file that is visible inside the container or on the host.
 
 class PFRequest(BaseModel):
     grid_id: str
@@ -389,6 +342,27 @@ class PFTimeSeriesRequest(BaseModel):
     vmin: float = 0.95
     vmax: float = 1.05
     dss_master_path: Optional[str] = None  # required when engine is opendss/pmd
+
+class BuildProfilesReq(BaseModel):
+    hours: int = 24
+    date: str
+    # 形如 ["BUS_A:3500:0.95", "BUS_B:2800:0.92"] -> "bus:annual_kWh:pf"
+    # EN: Format like ["BUS_A:3500:0.95", "BUS_B:2800:0.92"] meaning "bus:annual_kWh:pf".
+    specs: List[str]
+    code: str = "H0"   # 负荷曲线代码
+    # EN: Load profile code (e.g., H0); used to select the daily shape.
+
+class DSSPFRequest(BaseModel):
+    master_dss: str                                  # 容器内可见路径，如 /work/ieee13/Master.dss
+    # EN: Path visible inside the container, e.g., /work/ieee13/Master.dss
+    injections: Dict[str, List[float]] = Field(default_factory=dict)  # {"632":[ΔP_kW, ΔQ_kVAr], ...}
+    # EN: Bus injections as deltas: {"632":[ΔP_kW, ΔQ_kVAr], ...}
+    mode: Literal["raw","summary"] = "summary"       # 与 julia 脚本一致
+    # EN: Must match the Julia script interface ("raw" or "summary").
+    engine: Literal["opendss","pmd"] = "pmd"         # 选择 OpenDSS 或 PMD
+    # EN: Select computation engine: OpenDSS or PMD.
+    timeout_sec: int = 120                           # 运行超时保护
+    # EN: Execution timeout safeguard (seconds).
 
 # ---------- utilities ----------
 def _normalize_profiles_to_hours(profiles: Dict[str, TSProfile], hours: int) -> Dict[str, Dict[str, List[float]]]:
@@ -420,6 +394,38 @@ def health_deps():
         "pandapower_found": True
     }
 
+@app.get("/version")
+def version():
+    py = {
+        "python": os.sys.version.split()[0],
+        "pandapower": getattr(pp, "__version__", None),
+        "pandas": getattr(pd, "__version__", None),
+    }
+    jl_found = shutil.which(JULIA_EXE) is not None
+    jl_ver = None
+    pmd_ver = None
+    odss_ver = None
+    if jl_found:
+        try:
+            v = subprocess.run([JULIA_EXE, "--version"], stdout=subprocess.PIPE, text=True, timeout=5)
+            jl_ver = (v.stdout or "").strip()
+        except Exception:
+            pass
+        try:
+            v2 = subprocess.run([JULIA_EXE, "-e", "using PowerModelsDistribution; println(PowerModelsDistribution.VERSION)"],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=8)
+            pmd_ver = (v2.stdout or "").strip()
+        except Exception:
+            pass
+        try:
+            v3 = subprocess.run([JULIA_EXE, "-e", "using OpenDSSDirect; println(OpenDSSDirect.VERSION)"],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=8)
+            odss_ver = (v3.stdout or "").strip()
+        except Exception:
+            pass
+    return {"python": py, "julia_found": jl_found, "julia_version": jl_ver,
+            "pmd_version": pmd_ver, "opendssdirect_version": odss_ver}
+
 @app.get("/profiles/slp")
 def slp(code: str, date: str, hours: int = 24):
     # simple residential-like profile; normalized; interp for non-24
@@ -435,6 +441,63 @@ def slp(code: str, date: str, hours: int = 24):
         s = sum(base); prof = [x/s for x in base]
     return {"code": code, "date": date, "hours": hours, "source": "fallback", "profile": prof}
 
+@app.get("/profiles/bdew")
+def bdew(code: str, date: str, hours: int = 24):
+    """
+    BDEW 标准负荷曲线（基于 demandlib，15min -> 小时聚合）
+    - 输入：code（如 H0/h0/h0_dyn/G0...）、date（YYYY-MM-DD）、hours（默认24）
+    - 输出：长度=hours 的归一化权重（sum=1），用于按日能量缩放生成逐时 P_kW
+    - 失败自动回退到 /profiles/slp（保证可运行）
+    """
+    # EN: BDEW standard load profiles using demandlib (15-min data aggregated to hourly).
+    # EN: Inputs — code (e.g., H0/h0/h0_dyn/G0...), date (YYYY-MM-DD), hours (default 24).
+    # EN: Output — normalized weights of length = hours (sum to 1) for scaling daily energy to hourly P_kW.
+    # EN: On failure, it falls back to /profiles/slp to ensure robustness.
+    try:
+        from demandlib import bdew as _bdew
+        import pandas as _pd
+        import numpy as _np
+
+        dt = _pd.to_datetime(date).date()
+        year = int(dt.year)
+        code_l = str(code or "h0").lower()
+
+        e_slp = _bdew.ElecSlp(year=year)
+        scaled = e_slp.get_scaled_profiles({code_l: 365.0})
+        if code_l not in scaled.columns:
+            return slp(code=code, date=date, hours=hours)
+
+        s = scaled[code_l]
+        day = s[s.index.date == dt]
+        if len(day) == 0:
+            return slp(code=code, date=date, hours=hours)
+
+        day = day.reset_index()
+        day["hour"] = day["index"].dt.hour
+        hourly = day.groupby("hour")[code_l].sum().reindex(range(24), fill_value=0.0)
+
+        w = hourly.values.astype(float)
+        total = float(w.sum()) or 1.0
+        w = w / total
+
+        if hours != 24:
+            x = _np.linspace(0, 23, 24)
+            x2 = _np.linspace(0, 23, int(hours))
+            w2 = _np.interp(x2, x, w)
+            s2 = float(w2.sum()) or 1.0
+            prof = (w2 / s2).tolist()
+        else:
+            prof = w.tolist()
+
+        return {
+            "code": code_l, "date": date, "hours": int(hours),
+            "source": "bdew:demandlib", "resolution_in": "15min",
+            "profile": prof
+        }
+    except Exception:
+        return slp(code=code, date=date, hours=hours)
+
+# ---------- Grid ops ----------
 @app.post("/grid/register")
 def grid_register(req: GridRegisterReq):
     src = req.pp_pickle_path or req.pp_json_path
@@ -479,6 +542,47 @@ def grid_fix_slack(grid_id: str):
     return {"status": "ok", "grid_id": grid_id, "slack_bus_index": sidx, "slack_bus_name": name(sidx),
             "recommend_inj_index": iidx, "recommend_inj_name": name(iidx)}
 
+@app.get("/grid/list")
+def grid_list():
+    reg = _load_registry()
+    rows = []
+    for gid, info in (reg or {}).items():
+        rows.append({
+            "grid_id": gid,
+            "name": info.get("name"),
+            "pp_path": _abs_norm_path(info.get("pp_path", "")),
+            "dss_master_path": _abs_norm_path(info.get("dss_master_path", "")) if info.get("dss_master_path") else None,
+            "slack_bus_index": info.get("slack_bus_index"),
+            "recommend_inj_index": info.get("recommend_inj_index"),
+        })
+    return {"count": len(rows), "grids": rows}
+
+@app.get("/grid/get")
+def grid_get(grid_id: str):
+    reg = _load_registry()
+    info = reg.get(grid_id)
+    if not info:
+        raise HTTPException(404, f"grid_id not found: {grid_id}")
+    out = dict(info)
+    out["pp_path"] = _abs_norm_path(out.get("pp_path",""))
+    if out.get("dss_master_path"):
+        out["dss_master_path"] = _abs_norm_path(out["dss_master_path"])
+    return {"grid_id": grid_id, "info": out}
+
+@app.post("/grid/attach_dss")
+def grid_attach_dss(req: GridAttachDSSReq):
+    reg = _load_registry()
+    info = reg.get(req.grid_id)
+    if not info:
+        raise HTTPException(404, f"grid_id not found: {req.grid_id}")
+    path = _abs_norm_path(req.dss_master_path or "")
+    if not path or not os.path.exists(path):
+        raise HTTPException(400, f"dss_master_path not found: {path}")
+    info["dss_master_path"] = path
+    _save_registry(reg)
+    return {"status": "ok", "grid_id": req.grid_id, "dss_master_path": path}
+
+# ---------- Listing ----------
 @app.get("/bus/list")
 def bus_list(grid_id: str):
     info = _load_registry().get(grid_id)
@@ -492,28 +596,146 @@ def bus_list(grid_id: str):
                      "vn_kv": float(net.bus.at[idx,"vn_kv"])})
     return {"grid_id": grid_id, "buses": rows}
 
+from typing import Optional
+
+@app.get("/dss/bus/list")
+def dss_bus_list(grid_id: Optional[str] = None, dss_master_path: Optional[str] = None):
+    """
+    列出 OpenDSS 母线。
+    优先顺序：
+      1) 如果 query 里给了 dss_master_path → 直接用；
+      2) 否则用 grid_id 到注册表里找 dss_master_path；
+      3) 都没有 → 报错并提示如何修复。
+    """
+    # EN: List OpenDSS buses.
+    # EN: Priority:
+    # EN:   1) If query provides dss_master_path -> use it directly;
+    # EN:   2) Else, use grid_id to look up dss_master_path in the registry;
+    # EN:   3) If neither, raise an error with guidance.
+    if not dss_master_path:
+        if not grid_id:
+            raise HTTPException(400, "dss_master_path not found: provide grid_id (with prior attach) or pass dss_master_path query param.")
+        reg = _load_registry()
+        info = reg.get(grid_id or "")
+        if info and info.get("dss_master_path"):
+            dss_master_path = info["dss_master_path"]
+
+    if not dss_master_path:
+        raise HTTPException(400, f"dss_master_path not found: grid_id={grid_id}. Attach via POST /grid/attach_dss or pass dss_master_path=...")
+
+    dss_master_path = _abs_norm_path(dss_master_path)
+    if not os.path.exists(dss_master_path):
+        raise HTTPException(400, f"dss_master_path not found on disk: {dss_master_path}")
+
+    try:
+        data = _run_julia_pf(dss_master_path, {}, "raw", "opendss")
+        busmap = (data or {}).get("bus_vmag_angle_pu") or {}
+        buses = sorted([str(b) for b in busmap.keys()])
+        return {"status": "ok", "bus_count": len(buses), "buses": buses, "dss_master_path": dss_master_path}
+    except HTTPException as e:
+        raise HTTPException(500, f"read dss buses failed: {e.status_code}: {e.detail}")
+    except Exception as e:
+        raise HTTPException(500, f"read dss buses failed: {type(e).__name__}: {e}")
+
+# ---------- Profiles ----------
+@app.post("/profiles/build")
+def build_profiles(req: BuildProfilesReq):
+    # 1) 取归一化曲线
+    # EN: (1) Get normalized daily profile weights.
+    try:
+        prof = slp(req.code, req.date, req.hours)["profile"]
+    except Exception:
+        prof = [1.0/req.hours]*req.hours
+    s = sum(prof) or 1.0
+    prof = [v/s for v in prof]
+
+    # 2) 工具函数
+    # EN: (2) Helper functions.
+    import math
+    def _q_from_p_pf(p_kw: float, pf: float) -> float:
+        pf = min(max(pf, 1e-6), 0.999999)
+        phi = math.acos(pf)
+        return p_kw * math.tan(phi)
+
+    def _scale_daily_by_annual(slp: List[float], annual_kwh: float) -> List[float]:
+        daily_kwh = float(annual_kwh) / 365.0
+        return [daily_kwh * w for w in slp]
+
+    # 3) 生成 profiles
+    # EN: (3) Build per-bus P/Q profiles for the day.
+    profiles: Dict[str, Dict[str, List[float]]] = {}
+    for spec in (req.specs or []):
+        try:
+            bus, annual_s, pf_s = str(spec).split(":")
+            annual = float(annual_s); pf = float(pf_s)
+        except Exception:
+            raise HTTPException(400, f"bad spec: {spec}; expect 'BUS:annual_kWh:pf'")
+        P = _scale_daily_by_annual(prof, annual)
+        Q = [_q_from_p_pf(p, pf) for p in P]
+        profiles[bus] = {"P_kW": P, "Q_kVAr": Q}
+
+    return {
+        "status": "ok",
+        "hours": req.hours,
+        "date": req.date,
+        "code": req.code,
+        "profiles": profiles
+    }
+
+# ---------- PF: snapshot ----------
 @app.post("/pf/run")
 def run_pf(req: PFRequest):
     # --- OpenDSS / PMD branch ---
     if req.engine in ("opendss", "pmd"):
+        # 如果 body 里没传 dss_master_path，就尝试从注册表里取
+        # EN: If dss_master_path is missing in the request body, try to read it from the registry using grid_id.
         if not req.dss_master_path:
-            raise HTTPException(400, "opendss/pmd requires dss_master_path")
+            reg = _load_registry()
+            info = reg.get(req.grid_id or "")
+            if info and info.get("dss_master_path"):
+                req.dss_master_path = info["dss_master_path"]
+        if not req.dss_master_path:
+            raise HTTPException(
+                400,
+                f"opendss/pmd requires dss_master_path; either attach via POST /grid/attach_dss "
+                f"or pass dss_master_path explicitly. grid_id={req.grid_id}"
+            )
+
+        # 调用 Julia
+        # EN: Invoke the Julia runner.
         t0 = time.perf_counter()
         data = _run_julia_pf(req.dss_master_path, req.injections or {}, req.mode, req.engine)
         elapsed = time.perf_counter() - t0
+
         if req.mode == "raw":
-            return {"status": "ok", "engine": req.engine, "mode": "raw",
-                    "elapsed_sec": elapsed, "result": data}
+            return {
+                "status": "ok",
+                "engine": req.engine,
+                "mode": "raw",
+                "elapsed_sec": elapsed,
+                "result": data
+            }
+
+        if req.engine == "opendss":
+            summ = (data or {}).get("summary") or {}
+            agg = _aggregate_opendss_summary(summ, req.vmin, req.vmax)
+            return {
+                "status": "ok",
+                "engine": "opendss",
+                "mode": "summary",
+                "elapsed_sec": elapsed,
+                "result": {"summary": summ, "aggregate": agg}
+            }
         else:
-            if req.engine == "opendss":
-                summ = (data or {}).get("summary") or {}
-                agg = _aggregate_opendss_summary(summ, req.vmin, req.vmax)
-                return {"status": "ok", "engine": "opendss", "mode": "summary",
-                        "elapsed_sec": elapsed, "result": {"summary": summ, "aggregate": agg}}
-            else:
-                summ = (data or {}).get("summary") or data or {}
-                return {"status": "ok", "engine": "pmd", "mode": "summary",
-                        "elapsed_sec": elapsed, "result": {"summary": summ}}
+            summ = (data or {}).get("summary") or data or {}
+            agg = _aggregate(summ, req.vmin, req.vmax)
+            return {
+                "status": "ok",
+                "engine": "pmd",
+                "mode": "summary",
+                "elapsed_sec": elapsed,
+                "result": {"summary": summ, "aggregate": agg}
+            }
 
     # --- pandapower branch ---
     info = _load_registry().get(req.grid_id)
@@ -542,6 +764,7 @@ def run_pf(req: PFRequest):
         return {"status": "ok", "engine": "pandapower", "mode": "summary",
                 "elapsed_sec": elapsed, "result": {"summary": summ}}
 
+# ---------- PF: timeseries ----------
 @app.post("/pf/run_timeseries")
 def run_pf_timeseries(req: PFTimeSeriesRequest):
     if req.hours <= 0:
@@ -565,30 +788,28 @@ def run_pf_timeseries(req: PFTimeSeriesRequest):
             t0 = time.perf_counter()
             try:
                 data = _run_julia_pf(req.dss_master_path, inj, "summary", req.engine)
-                series["solver_time_sec"].append(time.perf_counter() - t0)
+                solver_t = time.perf_counter() - t0
+                series["solver_time_sec"].append(solver_t)
 
-                if req.engine == "opendss":
-                    summ = (data or {}).get("summary") or {}
-                    m = _aggregate_opendss_summary(summ, req.vmin, req.vmax)
-                    for k in ("min_vpu","max_vpu","P_loss_kW","Q_loss_kvar","under_voltage_bus_count","over_voltage_bus_count"):
-                        series[k].append(m[k])
-                    ok = (
-                        (m["min_vpu"] is not None)
-                        and (m["max_vpu"] is not None)
-                        and (m["under_voltage_bus_count"] == 0)
-                        and (m["over_voltage_bus_count"] == 0)
-                    )
-                    series["termination_status"].append("OK" if ok else "CHECK")
-                    if m["min_vpu"] is not None:
-                        worst_bus_min = min(worst_bus_min, m["min_vpu"])
-                    if ok: feasible += 1
-                else:
-                    # PMD: only record termination_status, no voltages available here
-                    summ = (data or {}).get("summary") or {}
-                    ts = str(summ.get("termination_status") or summ.get("status") or "UNKNOWN")
-                    series["termination_status"].append(ts)
-                    for k in ("min_vpu","max_vpu","P_loss_kW","Q_loss_kvar","under_voltage_bus_count","over_voltage_bus_count"):
-                        series[k].append(None)
+                summ = (data or {}).get("summary") or {}
+                m = _aggregate(summ, req.vmin, req.vmax)
+                for k in ("min_vpu","max_vpu","P_loss_kW","Q_loss_kvar","under_voltage_bus_count","over_voltage_bus_count"):
+                    series[k].append(m[k])
+
+                ok = (
+                    (m["min_vpu"] is not None)
+                    and (m["max_vpu"] is not None)
+                    and (m["under_voltage_bus_count"] == 0)
+                    and (m["over_voltage_bus_count"] == 0)
+                )
+                ts = str(summ.get("termination_status") or ("OK" if ok else "CHECK"))
+                series["termination_status"].append(ts)
+
+                if m["min_vpu"] is not None:
+                    worst_bus_min = min(worst_bus_min, m["min_vpu"])
+                if ok:
+                    feasible += 1
+
             except Exception as e:
                 series["solver_time_sec"].append(time.perf_counter() - t0)
                 series["termination_status"].append(f"ERROR:{type(e).__name__}")
@@ -612,7 +833,7 @@ def run_pf_timeseries(req: PFTimeSeriesRequest):
         raise HTTPException(404, f"grid_id not found: {req.grid_id}")
     path = info["pp_path"]
 
-    # validate that all bus keys exist
+    # validate bus keys exist
     net0 = _pp_load(path)
     _pp_apply_compat_patches(net0)
     for b in profs.keys():
@@ -671,31 +892,17 @@ def run_pf_timeseries(req: PFTimeSeriesRequest):
             "elapsed_sec_total": time.perf_counter() - t_total,
             "series": series, "summary": summary, "meta": {"pp_path": path}}
 
-# ==== DSS/PMD bridge (append-only) ==========================================
-from pydantic import BaseModel, Field
-from fastapi import HTTPException
-import subprocess, json, os, shutil, tempfile
-from typing import Dict, List, Literal
-
-class DSSPFRequest(BaseModel):
-    master_dss: str                                  # 容器内可见路径，如 /work/ieee13/Master.dss
-    injections: Dict[str, List[float]] = Field(default_factory=dict)  # {"632":[ΔP_kW, ΔQ_kVAr], ...}
-    mode: Literal["raw","summary"] = "summary"       # 与 julia 脚本一致
-    engine: Literal["opendss","pmd"] = "pmd"         # 选择 OpenDSS 或 PMD
-    timeout_sec: int = 120                           # 运行超时保护
-
+# ---------- DSS/PMD direct bridge ----------
 def _which_julia() -> str:
     cand = os.environ.get("JULIA_EXE") or "julia"
     if shutil.which(cand):
         return cand
-    # 兜底：常见安装位置（可按需扩展）
     for p in ["/usr/local/julia/bin/julia", "/usr/bin/julia"]:
         if os.path.exists(p):
             return p
     raise HTTPException(500, "JULIA_EXE not found in PATH/ENV")
 
 def _ensure_path_exists(path: str):
-    # 仅检查容器内可见路径；客户端应传 /work/... 或 /app/scripts/...
     if not os.path.exists(path):
         raise HTTPException(400, f"master_dss not found in container: {path}")
 
@@ -704,11 +911,13 @@ def pf_run_dss(req: DSSPFRequest):
     julia = _which_julia()
     script = os.environ.get("JULIA_DSS_SCRIPT", "/app/scripts/run_pf_dss.jl")
     if not os.path.exists(script):
-        raise HTTPException(500, f"Julia script not found: {script}")
+        return {"status": "error", "error_type": "ScriptNotFound", "detail": f"Julia script not found: {script}"}
 
-    _ensure_path_exists(req.master_dss)
+    try:
+        _ensure_path_exists(req.master_dss)
+    except HTTPException as e:
+        return {"status": "error", "error_type": "PathNotFound", "detail": e.detail}
 
-    # 准备参数
     inj_json = json.dumps(req.injections or {}, ensure_ascii=False)
     cmd = [julia, script, req.master_dss, inj_json, req.mode, req.engine]
 
@@ -718,25 +927,25 @@ def pf_run_dss(req: DSSPFRequest):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            encoding="utf-8",   # ★ 修正：UTF-8
-            errors="ignore",    # ★ 修正：忽略错误
+            encoding="utf-8",
+            errors="ignore",
             timeout=max(10, int(req.timeout_sec)),
             check=False
         )
     except subprocess.TimeoutExpired:
-        raise HTTPException(504, "Julia PF timed out")
+        return {"status": "error", "error_type": "Timeout", "detail": "Julia PF timed out"}
 
     if r.returncode != 0:
-        raise HTTPException(500, f"Julia exited {r.returncode}: {r.stderr.strip()}")
+        return {"status": "error", "error_type": "JuliaExit", "code": r.returncode, "stderr": (r.stderr or "")[:1000]}
 
     out = (r.stdout or "").strip()
     if not out:
-        raise HTTPException(500, f"Julia returned empty stdout. stderr={r.stderr[:500]}")
+        return {"status": "error", "error_type": "EmptyStdout", "stderr": (r.stderr or "")[:1000]}
 
     try:
         payload = json.loads(out)
     except Exception as e:
-        raise HTTPException(500, f"Invalid JSON from Julia: {e}; first 500 chars: {out[:500]}")
+        return {"status": "error", "error_type": "InvalidJSON", "detail": str(e), "stdout_head": out[:500]}
 
     return {
         "status": "ok",
