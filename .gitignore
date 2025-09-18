@@ -1,0 +1,40 @@
+# ===== Python =====
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+*.egg-info/
+.ipynb_checkpoints/
+
+# ===== ???? / ?? =====
+intermediate/
+run_logs/
+run.txt
+*.sqlite
+.cache/
+.osmnx/
+.dave_cache/
+
+# ===== ???? =====
+saved_json/grids/
+data/dss/
+pp_raw.json
+master.dss
+busmap.csv
+
+# ???????
+!saved_json/grid_registry.json
+
+# ===== VS Code =====
+.vscode/
+
+# ===== OS ?? =====
+.DS_Store
+Thumbs.db
+
+# ===== Julia??????????????? Project/Manifest?=====
+.julia/
+!scripts/Project.toml
+!scripts/Manifest.toml
