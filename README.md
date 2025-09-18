@@ -57,6 +57,43 @@ This script installs/repairs the required Julia packages (OpenDSSDirect, PowerMo
 If the registry is flaky, it falls back to direct Git URLs.
 
 
+DAVE DATAPOOL HOTFIX (REQUIRED ON SOME OLDER BUILDS)
+----------------------------------------------------
+Older DAVE releases ship a broken datapool link that causes HTML/503 responses. Patch the installed package once
+before the first run; it will download a small bundle and cache it locally.
+
+- Windows PowerShell (run inside the venv):
+    $rd = (python -c "import dave_core, os; print(os.path.join(os.path.dirname(dave_core.__file__), 'datapool', 'read_data.py'))").Trim()
+    Copy-Item $rd "$($rd).bak" -Force
+    $pattern = '^\s*url\s*=.*$'
+    $replacement = "    url = f'https://owncloud.fraunhofer.de/index.php/s/Y5J1lBxeau3N48p/download?path=%2F&files={filename}'"
+    $content = Get-Content -Raw -Encoding UTF8 $rd
+    $content = [System.Text.RegularExpressions.Regex]::Replace($content, $pattern, $replacement, 'Multiline')
+    Set-Content -Path $rd -Value $content -Encoding UTF8
+    Select-String -Path $rd -Pattern '^\s*url\s*='
+
+- macOS/Linux (bash; run inside the venv):
+    RD="$(python - <<'PY'
+import dave_core, os
+print(os.path.join(os.path.dirname(dave_core.__file__), "datapool", "read_data.py"))
+PY
+)"
+    cp "$RD" "$RD.bak"
+    python - <<'PY'
+import os, io, re
+p = os.environ["RD"]
+txt = io.open(p, "r", encoding="utf8").read()
+txt = re.sub(r'(?m)^\s*url\s*=.*$', "    url = f'https://owncloud.fraunhofer.de/index.php/s/Y5J1lBxeau3N48p/download?path=%2F&files={filename}'", txt)
+io.open(p, "w", encoding="utf8").write(txt)
+print("Patched:", p)
+PY
+    grep -n "url =" "$RD"
+
+(Optional) Clear prior HTTP cache if you already saw 503/HTML:
+- Windows: Remove-Item .\intermediate\dave_cache\http_cache.sqlite -ErrorAction SilentlyContinue
+- macOS/Linux: rm -f ./intermediate/dave_cache/http_cache.sqlite
+
+
 ONE-SHOT QUICK RUN (fast, no 24h)
 ---------------------------------
 
